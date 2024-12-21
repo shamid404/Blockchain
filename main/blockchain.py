@@ -20,7 +20,7 @@ class MerkleTree:
                 if i+1 < len(tree):
                     combined = tree[i] + tree[i+1]
                 else:
-                    combined = tree[i] + tree[i]  # Handle odd number of elements
+                    combined = tree[i] + tree[i]
                 temp.append(hash(combined))
             tree = temp
         
