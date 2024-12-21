@@ -1,11 +1,9 @@
 import hashlib
 import time
 
-# Implementing the SHA-256 hashing algorithm
 def hash(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
-# Merkle Tree class for creating and hashing transactions
 class MerkleTree:
     def __init__(self, transactions):
         self.transactions = transactions
@@ -26,9 +24,8 @@ class MerkleTree:
                 temp.append(hash(combined))
             tree = temp
         
-        return tree[0]  # Root of the Merkle Tree
+        return tree[0]
 
-# Block class representing each block in the blockchain
 class Block:
     def __init__(self, previous_hash, timestamp, merkle_root):
         self.previous_hash = previous_hash
@@ -39,14 +36,12 @@ class Block:
     def calculate_hash(self):
         return hash(f"{self.previous_hash}{self.timestamp}{self.merkle_root}")
 
-# Blockchain class with mining and validation
 class Blockchain:
     def __init__(self):
         self.chain = []
         self.create_genesis_block()
 
     def create_genesis_block(self):
-        # Create the first block (genesis block)
         timestamp = str(int(time.time()))
         merkle_tree = MerkleTree(["Transaction1", "Transaction2", "Transaction3", "Transaction4", "Transaction5", "Transaction6", "Transaction7", "Transaction8", "Transaction9", "Transaction10"])
         genesis_block = Block("0", timestamp, merkle_tree.tree)
@@ -64,11 +59,9 @@ class Blockchain:
             current_block = self.chain[i]
             previous_block = self.chain[i - 1]
 
-            # Validate current block's hash
             if current_block.hash != current_block.calculate_hash():
                 return False
 
-            # Validate previous hash link
             if current_block.previous_hash != previous_block.hash:
                 return False
 
@@ -85,7 +78,6 @@ class Blockchain:
 # Example usage
 blockchain = Blockchain()
 
-# Adding a new block with transactions
 transactions = [
     "Sender1 -> Receiver1: 100",
     "Sender2 -> Receiver2: 50",
@@ -100,11 +92,9 @@ transactions = [
 ]
 blockchain.mine_block(transactions)
 
-# Validate the blockchain
 if blockchain.validate_blockchain():
     print("Blockchain is valid!")
 else:
     print("Blockchain is invalid.")
 
-# Print out the blockchain
 blockchain.print_chain()
