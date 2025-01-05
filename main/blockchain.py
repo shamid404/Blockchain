@@ -1,135 +1,252 @@
 import time
+import json
+from random import randint
+from math import gcd
 
-class SHA256:
-    def __init__(self):
-        self.k = [
+def hash(text):
+    def right_rotate(value, shift):
+        return (value >> shift) | (value << (32 - shift)) & 0xFFFFFFFF
+
+    def padding(msg):
+        msg_len = len(msg) * 8
+        msg += b'\x80'
+        while (len(msg) * 8) % 512 != 448:
+            msg += b'\x00'
+        msg += msg_len.to_bytes(8, 'big')
+        return msg
+
+    def process_chunk(chunk, h):
+        k = [
             0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
             0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-            0x8e44a1d6, 0x90bdc0b1, 0x8a4423e5, 0x584b6b8f, 0x6d6d5ecf, 0x7a4b17e3, 0x7f2c6b8f, 0x88c3f83b,
-            0x8831c1a6, 0x8a04b9db, 0x5a305e3, 0x0b5e1eaf, 0x2b90b8b7, 0x2eb38a3a, 0x31c370b5, 0x311e7e3e,
-            0x6c44198c, 0x64b8985c, 0x2a3e4c9b, 0x017ec92a, 0x74c49724, 0x358cde39, 0x48cf7cc2, 0x74cc15b6,
-            0x8b45038a, 0x5c542d3a, 0x94b5d08e, 0x60b4d6d7, 0x0d5394fd, 0xdfe7d905, 0x3f76f8dd, 0x1f30e38d,
-            0x1b0c9b80, 0x1c798225, 0x4654650b, 0x4f3190da, 0x9ea875f0, 0x0a875c66, 0x5b2b4660, 0x16c5f88c,
-            0x4e07aa98, 0x1eec6f98, 0x59a021a8, 0x97e5b4a6, 0x367f0b1d, 0xa19b4025, 0x4730be0d, 0x2b42a7e5
+            0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+            0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+            0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+            0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+            0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0b5c3, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+            0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
         ]
-        self.h = [
-            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+        w = [0] * 64
+        for i in range(16):
+            w[i] = int.from_bytes(chunk[i * 4:i * 4 + 4], 'big')
+        for i in range(16, 64):
+            s0 = right_rotate(w[i - 15], 7) ^ right_rotate(w[i - 15], 18) ^ (w[i - 15] >> 3)
+            s1 = right_rotate(w[i - 2], 17) ^ right_rotate(w[i - 2], 19) ^ (w[i - 2] >> 10)
+            w[i] = (w[i - 16] + s0 + w[i - 7] + s1) & 0xFFFFFFFF
+        a, b, c, d, e, f, g, h_ = h
+        for i in range(64):
+            s1 = right_rotate(e, 6) ^ right_rotate(e, 11) ^ right_rotate(e, 25)
+            ch = (e & f) ^ (~e & g)
+            temp1 = (h_ + s1 + ch + k[i] + w[i]) & 0xFFFFFFFF
+            s0 = right_rotate(a, 2) ^ right_rotate(a, 13) ^ right_rotate(a, 22)
+            maj = (a & b) ^ (a & c) ^ (b & c)
+            temp2 = (s0 + maj) & 0xFFFFFFFF
+            h_ = g
+            g = f
+            f = e
+            e = (d + temp1) & 0xFFFFFFFF
+            d = c
+            c = b
+            b = a
+            a = (temp1 + temp2) & 0xFFFFFFFF
+        return [(a + h[0]) & 0xFFFFFFFF, (b + h[1]) & 0xFFFFFFFF, (c + h[2]) & 0xFFFFFFFF,
+                (d + h[3]) & 0xFFFFFFFF, (e + h[4]) & 0xFFFFFFFF, (f + h[5]) & 0xFFFFFFFF,
+                (g + h[6]) & 0xFFFFFFFF, (h_ + h[7]) & 0xFFFFFFFF]
+
+    def sha256(msg):
+        h = [
+            0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
+            0x1f83d9ab, 0x5be0cd19
         ]
-        self.pad = 0x80
-    def right_rotate(self, x, n):
-        return (x >> n) | (x << (32 - n)) & 0xFFFFFFFF
+        msg = padding(msg.encode('utf-8'))
+        for i in range(0, len(msg), 64):
+            chunk = msg[i:i + 64]
+            h = process_chunk(chunk, h)
+        return ''.join(f'{x:08x}' for x in h)
 
-    def sha256(self, msg: str) -> str:
-        message = bytearray(msg, 'utf-8')
-        message_len = len(message) * 8
-        message.append(self.pad)
+    return sha256(text)
 
-        while (len(message) * 8) % 512 != 448:
-            message.append(0)
+class RSA:
+    def __init__(self):
+        self.public_key = None
+        self.private_key = None
 
-        for i in range(8):
-            message.append((message_len >> (8 * (7 - i))) & 0xFF)
+    def generate_keys(self):
+        def generate_prime():
+            while True:
+                num = randint(100, 999)
+                if all(num % i != 0 for i in range(2, int(num ** 0.5) + 1)):
+                    return num
 
-        for i in range(0, len(message), 64):
-            block = message[i:i + 64]
-            w = [0] * 64
-            for j in range(16):
-                w[j] = (block[j * 4] << 24) | (block[j * 4 + 1] << 16) | (block[j * 4 + 2] << 8) | block[j * 4 + 3]
+        p = generate_prime()
+        q = generate_prime()
+        n = p * q
+        phi = (p - 1) * (q - 1)
+        e = randint(2, phi - 1)
+        while gcd(e, phi) != 1:
+            e = randint(2, phi - 1)
+        d = pow(e, -1, phi)
+        self.public_key = (e, n)
+        self.private_key = (d, n)
 
-            for j in range(16, 64):
-                s0 = self.right_rotate(w[j - 15], 7) ^ self.right_rotate(w[j - 15], 18) ^ (w[j - 15] >> 3)
-                s1 = self.right_rotate(w[j - 2], 17) ^ self.right_rotate(w[j - 2], 19) ^ (w[j - 2] >> 10)
-                w[j] = (w[j - 16] + s0 + w[j - 7] + s1) & 0xFFFFFFFF
+    def encrypt(self, message, key):
+        e, n = key
+        return [pow(ord(char), e, n) for char in message]
 
-            a, b, c, d, e, f, g, h = self.h
+    def decrypt(self, cipher, key):
+        d, n = key
+        return ''.join(chr(pow(char, d, n)) for char in cipher)
 
-            for j in range(64):
-                s1 = self.right_rotate(e, 6) ^ self.right_rotate(e, 11) ^ self.right_rotate(e, 25)
-                ch = (e & f) ^ ((~e) & g)
-                temp1 = (h + s1 + ch + self.k[j] + w[j]) & 0xFFFFFFFF
-                s0 = self.right_rotate(a, 2) ^ self.right_rotate(a, 13) ^ self.right_rotate(a, 22)
-                maj = (a & b) ^ (a & c) ^ (b & c)
-                temp2 = (s0 + maj) & 0xFFFFFFFF
-                h = g
-                g = f
-                f = e
-                e = (d + temp1) & 0xFFFFFFFF
-                d = c
-                c = b
-                b = a
-                a = (temp1 + temp2) & 0xFFFFFFFF
-            self.h = [(x + y) & 0xFFFFFFFF for x, y in zip(self.h, [a, b, c, d, e, f, g, h])]
+    def sign(self, private_key, document):
+        document_hash = hash(document)
+        return self.encrypt(document_hash, private_key)
 
-        return ''.join([f'{x:08x}' for x in self.h])
+    def verify(self, public_key, document, signature):
+        decrypted_hash = self.decrypt(signature, public_key)
+        document_hash = hash(document)
+        return decrypted_hash == document_hash
+
+class Wallet:
+    def __init__(self, rsa):
+        self.rsa = rsa
+        self.private_key = None
+        self.public_key = None
+        self.generate_wallet()
+
+    def generate_wallet(self):
+        self.rsa.generate_keys()
+        self.private_key = self.rsa.private_key
+        self.public_key = self.rsa.public_key
+
+    def sign_transaction(self, transaction):
+        transaction.sign_transaction(self.rsa)
+
+    def get_public_key(self):
+        return self.public_key
 
 
-def calculate_merkle_root(transactions: list) -> str:
-    if len(transactions) == 1:
-        return SHA256().sha256(transactions[0])
-    while len(transactions) > 1:
-        temp_transactions = []
-        for i in range(0, len(transactions), 2):
-            if i + 1 < len(transactions):
-                temp_transactions.append(SHA256().sha256(transactions[i] + transactions[i + 1]))
-            else:
-                temp_transactions.append(SHA256().sha256(transactions[i] + transactions[i]))
-        transactions = temp_transactions
-    return transactions[0]
+# Transaction class to represent a transaction
+class Transaction:
+    def __init__(self, sender, receiver, amount, private_key):
+        self.sender = sender
+        self.receiver = receiver
+        self.amount = amount
+        self.signature = None
+        self.private_key = private_key
+
+    def sign_transaction(self, rsa):
+        document = f"{self.sender}->{self.receiver}:{self.amount}"
+        self.signature = rsa.sign(self.private_key, document)
+
+    def verify_transaction(self, rsa, public_key):
+        document = f"{self.sender}->{self.receiver}:{self.amount}"
+        if not rsa.verify(public_key, document, self.signature):
+            raise ValueError("Signature is wrong")
+        if f"{self.sender}->{self.receiver}:{self.amount}" != document:
+            raise ValueError("Document is wrong")
 
 class Block:
-    def __init__(self, previous_hash: str, timestamp: float, transactions: list):
+    def __init__(self, previous_hash, timestamp, merkle_root):
         self.previous_hash = previous_hash
         self.timestamp = timestamp
+        self.merkle_root = merkle_root
+        self.nonce = 0
+        self.hash = None
+
+    def calculate_hash(self):
+        return hash(self.previous_hash + str(self.timestamp) + self.merkle_root + str(self.nonce))
+
+    def display_block(self):
+        print(f"Block Hash: {self.hash}")
+        print(f"Merkle Root: {self.merkle_root}")
+        print(f"Previous Hash: {self.previous_hash}")
+        print(f"Timestamp: {self.timestamp}")
+        print(f"Nonce: {self.nonce}")
+        print("---------------")
+
+class MerkleTree:
+    def __init__(self, transactions):
         self.transactions = transactions
-        self.merkle_root = calculate_merkle_root(transactions)
-        self.hash = self.mine_block()
 
-    def mine_block(self, difficulty: int = 4) -> str:
-        nonce = 0
-        sha256 = SHA256()
-        while True:
-            block_data = f'{self.previous_hash}{self.timestamp}{self.merkle_root}{nonce}'
-            block_hash = sha256.sha256(block_data)
-            if block_hash[:difficulty] == '0' * difficulty:
-                return block_hash
-            nonce += 1
-
-    def __str__(self):
-        return f"Hash: {self.hash}\nPrevious Hash: {self.previous_hash}\nMerkle Root: {self.merkle_root}\nTimestamp: {self.timestamp}\n"
+    def build_tree(self):
+        hashes = [hash(transaction) for transaction in self.transactions]
+        while len(hashes) > 1:
+            if len(hashes) % 2 != 0:
+                hashes.append(hashes[-1])
+            hashes = [hash(hashes[i] + hashes[i + 1]) for i in range(0, len(hashes), 2)]
+        return hashes[0]
 
 
+# Blockchain class to manage blocks and transactions
 class Blockchain:
-    def __init__(self):
+    def __init__(self, rsa):
         self.chain = []
-        self.add_genesis_block()
+        self.pending_transactions = []  # List of pending transactions
+        self.wallet = Wallet(rsa)  # Wallet initialization
+        self.difficulty = 4  # Mining difficulty
 
-    def add_genesis_block(self):
-        genesis_block = Block("0", time.time(), ["Initial transaction"])
-        self.chain.append(genesis_block)
+    def add_transaction(self, transaction):
+        self.pending_transactions.append(transaction)
 
-    def add_block(self, transactions: list):
-        previous_block = self.chain[-1]
-        new_block = Block(previous_block.hash, time.time(), transactions)
-        self.chain.append(new_block)
+    def mine_block(self):
+        timestamp = int(time.time())
+        merkle_tree = MerkleTree([f"{t.sender}->{t.receiver}:{t.amount}" for t in self.pending_transactions])
+        merkle_root = merkle_tree.build_tree()
+        previous_hash = self.chain[-1].hash if self.chain else "0"
+        block = Block(previous_hash, timestamp, merkle_root)
+        block.hash = block.calculate_hash()
+        self.chain.append(block)
+        self.pending_transactions = []  # Clear pending transactions after mining
 
-    def validate_blockchain(self) -> bool:
-        for i in range(1, len(self.chain)):
-            current_block = self.chain[i]
-            previous_block = self.chain[i - 1]
-            if current_block.hash != current_block.mine_block():
-                return False
-            if current_block.previous_hash != previous_block.hash:
-                return False
-        return True
+    def save_transactions_to_file(self, filename='transactions.json'):
+        if self.pending_transactions:
+            transactions_to_save = []
+            for transaction in self.pending_transactions:
+                transaction_data = {
+                    'sender': [x for x in transaction.sender],  # Convert sender to a list of characters
+                    'receiver': [x for x in transaction.receiver],  # Convert receiver to a list of characters
+                    'amount': transaction.amount,
+                    'signature': transaction.signature,  # Save the signature
+                    'document': f"{transaction.sender}->{transaction.receiver}:{transaction.amount}"  # Save the document
+                }
+                transactions_to_save.append(transaction_data)
+            with open(filename, 'w') as file:
+                json.dump(transactions_to_save, file, indent=4)
+            print("Transactions saved to file.")
+        else:
+            print("No transactions to save.")
 
-print("Mining block...")
+    def display_chain(self):
+        for block in self.chain:
+            block.display_block()
 
-blockchain = Blockchain()
 
-blockchain.add_block(["Alice sends 10 BTC to Bob"])
+# Example usage
+if __name__ == "__main__":
+    rsa = RSA()  # Initialize RSA
+    blockchain = Blockchain(rsa)  # Create blockchain with RSA encryption
 
-print("Blockchain valid:", blockchain.validate_blockchain())
+    wallet = blockchain.wallet  # Create wallet for the blockchain
 
-# Вывод всех блоков
-for block in blockchain.chain:
-    print(block)
+    # Create transactions
+    transaction1 = Transaction(wallet.get_public_key(), "BobPublicKey", 100, wallet.private_key)
+    transaction1.sign_transaction(rsa)
+    transaction1.verify_transaction(rsa, wallet.get_public_key())
+
+    blockchain.add_transaction(transaction1)
+    blockchain.mine_block()  # Mine the block
+
+    blockchain.save_transactions_to_file()  # Save transactions to file
+    blockchain.display_chain()  # Display the blockchain
+
+    transaction2 = Transaction(wallet.get_public_key(), "CharliePublicKey", 200, wallet.private_key)
+    transaction2.sign_transaction(rsa)
+    transaction2.verify_transaction(rsa, wallet.get_public_key())
+    blockchain.add_transaction(transaction2)
+
+    # Save transactions before mining the block
+    blockchain.save_transactions_to_file()
+
+    # Mine the block after adding transactions
+    blockchain.mine_block()
+    blockchain.display_chain()
