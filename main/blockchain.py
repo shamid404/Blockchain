@@ -125,7 +125,6 @@ class Wallet:
         return self.public_key
 
 
-# Transaction class to represent a transaction
 class Transaction:
     def __init__(self, sender, receiver, amount, private_key):
         self.sender = sender
@@ -177,13 +176,12 @@ class MerkleTree:
         return hashes[0]
 
 
-# Blockchain class to manage blocks and transactions
 class Blockchain:
     def __init__(self, rsa):
         self.chain = []
-        self.pending_transactions = []  # List of pending transactions
-        self.wallet = Wallet(rsa)  # Wallet initialization
-        self.difficulty = 4  # Mining difficulty
+        self.pending_transactions = [] 
+        self.wallet = Wallet(rsa)
+        self.difficulty = 4
 
     def add_transaction(self, transaction):
         self.pending_transactions.append(transaction)
@@ -196,18 +194,18 @@ class Blockchain:
         block = Block(previous_hash, timestamp, merkle_root)
         block.hash = block.calculate_hash()
         self.chain.append(block)
-        self.pending_transactions = []  # Clear pending transactions after mining
+        self.pending_transactions = [] 
 
     def save_transactions_to_file(self, filename='transactions.json'):
         if self.pending_transactions:
             transactions_to_save = []
             for transaction in self.pending_transactions:
                 transaction_data = {
-                    'sender': [x for x in transaction.sender],  # Convert sender to a list of characters
-                    'receiver': [x for x in transaction.receiver],  # Convert receiver to a list of characters
+                    'sender': [x for x in transaction.sender], 
+                    'receiver': [x for x in transaction.receiver],
                     'amount': transaction.amount,
-                    'signature': transaction.signature,  # Save the signature
-                    'document': f"{transaction.sender}->{transaction.receiver}:{transaction.amount}"  # Save the document
+                    'signature': transaction.signature, 
+                    'document': f"{transaction.sender}->{transaction.receiver}:{transaction.amount}"
                 }
                 transactions_to_save.append(transaction_data)
             with open(filename, 'w') as file:
@@ -220,33 +218,31 @@ class Blockchain:
         for block in self.chain:
             block.display_block()
 
-
-# Example usage
 if __name__ == "__main__":
-    rsa = RSA()  # Initialize RSA
-    blockchain = Blockchain(rsa)  # Create blockchain with RSA encryption
+    rsa = RSA() 
+    blockchain = Blockchain(rsa)  
 
-    wallet = blockchain.wallet  # Create wallet for the blockchain
+    wallet = blockchain.wallet  
 
-    # Create transactions
+    
     transaction1 = Transaction(wallet.get_public_key(), "BobPublicKey", 100, wallet.private_key)
     transaction1.sign_transaction(rsa)
     transaction1.verify_transaction(rsa, wallet.get_public_key())
 
     blockchain.add_transaction(transaction1)
-    blockchain.mine_block()  # Mine the block
+    blockchain.mine_block()  
 
-    blockchain.save_transactions_to_file()  # Save transactions to file
-    blockchain.display_chain()  # Display the blockchain
+    blockchain.save_transactions_to_file()
+    blockchain.display_chain()  
 
     transaction2 = Transaction(wallet.get_public_key(), "CharliePublicKey", 200, wallet.private_key)
     transaction2.sign_transaction(rsa)
     transaction2.verify_transaction(rsa, wallet.get_public_key())
     blockchain.add_transaction(transaction2)
 
-    # Save transactions before mining the block
+    
     blockchain.save_transactions_to_file()
 
-    # Mine the block after adding transactions
+    
     blockchain.mine_block()
     blockchain.display_chain()
